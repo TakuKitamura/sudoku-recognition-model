@@ -2,6 +2,7 @@ import cv2
 import numpy
 import glob
 import os
+from imageTransformer import ImageTransformer
 
 np = numpy
 
@@ -108,39 +109,69 @@ for i, inputDirPath in enumerate(datasetPath):
         wBackground, hBackground = background.shape[:2] # type: int
 
         sudoku = cv2.imread('./sudoku.jpg') # type: numpy.ndarray
+        # mask = sudoku.copy()
+        # mask[:] = 255
 
-        mask = sudoku.copy()
-        mask[:] = 255
+                # グレースケールに変換する。
+        gray = cv2.cvtColor(sudoku, cv2.COLOR_BGR2GRAY)
+        # 2値化する。
+        _, binary = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY_INV)
+        _, contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        wSudoku, hsudoku = sudoku.shape[:2] # type: int
+        mask = np.zeros_like(sudoku)
+        cv2.drawContours(mask, contours, -1, color=(255, 255, 255), thickness=-1)
+
+        # theta=45, phi=45, gamma=45
+
+        theta, phi, gamma = numpy.random.randint(-30,30,3)
+
+        it = ImageTransformer(sudoku)
+        sudoku = it.rotate_along_axis(theta=theta, phi=phi, gamma=gamma)
+
+        it = ImageTransformer(mask)
+        mask = it.rotate_along_axis(theta=theta, phi=phi, gamma=gamma)
+
+        wSudoku, hSudoku = sudoku.shape[:2] # type: int
 
         level = [-90, 90]  # type: list[int]
         angle = np.random.randint(level[0], level[1])
         angleRad = angle/180.0*np.pi
         
 
-        wSudokuRot = int(np.round(hsudoku*np.absolute(np.sin(angleRad))+wSudoku*np.absolute(np.cos(angleRad)))) # type: int
-        hSudokuRot = int(np.round(hsudoku*np.absolute(np.cos(angleRad))+wSudoku*np.absolute(np.sin(angleRad)))) # type: int
+        wSudokuRot = int(np.round(hSudoku*np.absolute(np.sin(angleRad))+wSudoku*np.absolute(np.cos(angleRad)))) # type: int
+        hSudokuRot = int(np.round(hSudoku*np.absolute(np.cos(angleRad))+wSudoku*np.absolute(np.sin(angleRad)))) # type: int
 
         sudokuSizeRot = (wSudokuRot, hSudokuRot) # type: tuple
 
         scale = 1.0 # type: double
-        rotationMatrix = cv2.getRotationMatrix2D((wSudoku / 2, hsudoku / 2), angle, scale) # type: numpy.ndarray
+        rotationMatrix = cv2.getRotationMatrix2D((wSudoku / 2, hSudoku / 2), angle, scale) # type: numpy.ndarray
 
         affine_matrix = rotationMatrix.copy() # type: numpy.ndarray
         affine_matrix[0][2] = affine_matrix[0][2] -wSudoku/2 + wSudokuRot/2 # type: numpy.ndarray
-        affine_matrix[1][2] = affine_matrix[1][2] -hsudoku/2 + hSudokuRot/2 # type: numpy.ndarray
+        affine_matrix[1][2] = affine_matrix[1][2] -hSudoku/2 + hSudokuRot/2 # type: numpy.ndarray
 
         sudoku = cv2.warpAffine(sudoku, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
         mask = cv2.warpAffine(mask, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
 
-        wSudoku, hsudoku = sudoku.shape[:2] # type: int
-        if wBackground > wSudoku and hBackground > hsudoku:
+
+        print(wBackground, wSudoku)
+        if wBackground <= wSudoku:
+            wRate = (wBackground / wSudoku) * (numpy.random.randint(3, 10) * 0.1)
+        if hBackground <= hSudoku:
+            hRate = (hBackground / hSudoku) * (numpy.random.randint(3, 10) * 0.1)
+
+        sudoku = cv2.resize(sudoku, dsize=None, fx=wRate, fy=hRate)
+        mask = cv2.resize(mask, dsize=None, fx=wRate, fy=hRate)
+        print(wRate, hRate)
+        wSudoku, hSudoku = sudoku.shape[:2] # type: int
+        if wBackground > wSudoku and hBackground > hSudoku:
             
             xOffset = np.random.randint(0, wBackground - wSudoku + 1) # type: int
-            yOffset = np.random.randint(0, hBackground - hsudoku + 1) # type: int
+            yOffset = np.random.randint(0, hBackground - hSudoku + 1) # type: int
                         
-            roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hsudoku] # type: numpy.ndarray
+            roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] # type: numpy.ndarray
             result = np.where(mask==255, sudoku, roi) # type: numpy.ndarray
-            background[xOffset: xOffset + wSudoku, yOffset: yOffset + hsudoku] = result
-            cv2.imwrite('/tmp/' + outputFileName, background)
+            background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] = result
+            cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, background)
+        else:
+            print(sudoku.shape, "error")
