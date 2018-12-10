@@ -123,7 +123,7 @@ for i, inputDirPath in enumerate(datasetPath):
 
         # theta=45, phi=45, gamma=45
 
-        theta, phi, gamma = numpy.random.randint(-30,30,3)
+        theta, phi, gamma = numpy.random.randint(-30, 30, 3)
 
         it = ImageTransformer(sudoku)
         sudoku = it.rotate_along_axis(theta=theta, phi=phi, gamma=gamma)
@@ -136,7 +136,6 @@ for i, inputDirPath in enumerate(datasetPath):
         level = [-90, 90]  # type: list[int]
         angle = np.random.randint(level[0], level[1])
         angleRad = angle/180.0*np.pi
-        
 
         wSudokuRot = int(np.round(hSudoku*np.absolute(np.sin(angleRad))+wSudoku*np.absolute(np.cos(angleRad)))) # type: int
         hSudokuRot = int(np.round(hSudoku*np.absolute(np.cos(angleRad))+wSudoku*np.absolute(np.sin(angleRad)))) # type: int
@@ -153,8 +152,40 @@ for i, inputDirPath in enumerate(datasetPath):
         sudoku = cv2.warpAffine(sudoku, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
         mask = cv2.warpAffine(mask, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
 
+        gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        _, contours, hierarchy = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # 左上 (x:min, y:min), 右上: (x:max, y:min, 左下: (x:min, y:max), 右下: (x:max, y:max)
+        xMaxList = []
+        xMinList = []
+        yMaxList = []
+        yMinList = []
+        for k, cnt in enumerate(contours):
+            cnt = np.squeeze(cnt, axis=1)
+            # print("min",min(cnt[:, 0]), min(cnt[:, 1]))
+            xMaxList.append(max(cnt[:, 0]))
+            xMinList.append(min(cnt[:, 0]))
+
+            yMaxList.append(max(cnt[:, 1]))
+            yMinList.append(min(cnt[:, 1]))
+
+        # print(max(xMax), min(xMin), max(yMax), min(yMin))
+        xMax = max(xMaxList)
+        xMin = min(xMinList)
+        yMax = max(yMaxList)
+        yMin = min(yMinList)
+
+        print(xMax, xMin, yMax, yMin)
+        
+        sudoku = sudoku[yMin: yMax,xMin: xMax]
+        mask = mask[yMin: yMax,xMin: xMax]
+
+        # cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, sudoku)
+        # cv2.imwrite('/Users/kitamurataku/Desktop/a/result_' + outputFileName, mask)
         tempSudoku = sudoku.copy()
         tempMask = mask.copy()
+
+        wSudoku, hSudoku = tempSudoku.shape[:2]
         for j in range(1, 100):
             if wBackground <= wSudoku or hBackground <= hSudoku:
                 if wBackground <= wSudoku:
@@ -174,11 +205,13 @@ for i, inputDirPath in enumerate(datasetPath):
                 mask = tempMask
                 xOffset = np.random.randint(0, wBackground - wSudoku + 1) # type: int
                 yOffset = np.random.randint(0, hBackground - hSudoku + 1) # type: int
-                            
                 roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] # type: numpy.ndarray
                 result = np.where(mask==255, sudoku, roi) # type: numpy.ndarray
                 background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] = result
+                print(wSudoku)
+                
                 cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, background)
+                exit(0)
                 break
             else:
                 tempSudoku = sudoku.copy()
