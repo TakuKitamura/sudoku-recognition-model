@@ -3,6 +3,9 @@ import numpy
 import glob
 import os
 from imageTransformer import ImageTransformer
+import urllib.request
+import io
+
 
 np = numpy
 
@@ -98,17 +101,27 @@ compositPath= [
     './composite/website',
 ]
 
+url = "http://localhost:8080/v0.0/sudoku/generate/problem?type=img"
+
 for i, inputDirPath in enumerate(datasetPath):
     fileList = glob.glob(inputDirPath + '/*') # type: list[str]
     for inputFilePath in fileList:
-        outputFileName = 'composite_' + os.path.basename(inputFilePath) # type: str
+        outputFileName = 'composite_' + os.path.basename(inputFilePath).replace("_","") # type: str
         outputFilePath = compositPath[i] + '/' + outputFileName # type: str
         # print(inputFilePath)
         background = cv2.imread(inputFilePath) # type: numpy.ndarray
         # try:
         wBackground, hBackground = background.shape[:2] # type: int
 
-        sudoku = cv2.imread('./sudoku.jpg') # type: numpy.ndarray
+        req = urllib.request.Request(url, method='POST')
+
+        with urllib.request.urlopen(req) as res:
+            body = res.read()
+
+        with open("sudoku.jpg", "wb") as f:
+            f.write(body)
+
+        sudoku = cv2.imread("./sudoku.jpg") # type: numpy.ndarray
         # mask = sudoku.copy()
         # mask[:] = 255
 
@@ -178,10 +191,8 @@ for i, inputDirPath in enumerate(datasetPath):
         print(xMax, xMin, yMax, yMin)
         
         sudoku = sudoku[yMin: yMax,xMin: xMax]
-        mask = mask[yMin: yMax,xMin: xMax]
+        mask = mask[yMin: yMax, xMin: xMax]
 
-        # cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, sudoku)
-        # cv2.imwrite('/Users/kitamurataku/Desktop/a/result_' + outputFileName, mask)
         tempSudoku = sudoku.copy()
         tempMask = mask.copy()
 
@@ -194,6 +205,10 @@ for i, inputDirPath in enumerate(datasetPath):
                     hRate = (hBackground / hSudoku) * (1 - (j * 0.01))
 
                 whRate = wRate if wRate <= hRate else hRate
+
+                whRate = whRate * np.random.randint(5, 11) * 0.1
+
+                # print(whRate)
 
                 tempSudoku = cv2.resize(tempSudoku, dsize=None, fx=whRate, fy=whRate)
                 tempMask = cv2.resize(tempMask, dsize=None, fx=whRate, fy=whRate)
@@ -208,10 +223,24 @@ for i, inputDirPath in enumerate(datasetPath):
                 roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] # type: numpy.ndarray
                 result = np.where(mask==255, sudoku, roi) # type: numpy.ndarray
                 background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] = result
-                print(wSudoku)
-                
-                cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, background)
-                exit(0)
+                # print(xOffset, wSudoku, yOffset , hSudoku)
+                # ymin, ymax, xmin, xmax
+
+                # print(yOffset, hSudoku+yOffset, xOffset, wSudoku+xOffset)
+
+                width, height = background.shape[:2]
+
+                xmin = str(yOffset)
+                xmax = str(hSudoku+yOffset)
+
+                ymin = str(xOffset)
+                ymax = str(wSudoku+xOffset)
+
+
+                outPutFormat = "_" + str(height) + "_" + str(width) + "_" + xmin + "_" + xmax + "_" + ymin + "_" + ymax + ".jpg"
+                print("output: ", outputFilePath + outPutFormat)
+                cv2.imwrite(outputFilePath + outPutFormat, background)
+                # exit(0)
                 break
             else:
                 tempSudoku = sudoku.copy()
