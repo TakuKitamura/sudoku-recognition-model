@@ -153,25 +153,33 @@ for i, inputDirPath in enumerate(datasetPath):
         sudoku = cv2.warpAffine(sudoku, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
         mask = cv2.warpAffine(mask, affine_matrix, sudokuSizeRot, flags=cv2.INTER_CUBIC) # type: numpy.ndarray
 
+        tempSudoku = sudoku.copy()
+        tempMask = mask.copy()
+        for j in range(1, 100):
+            if wBackground <= wSudoku or hBackground <= hSudoku:
+                if wBackground <= wSudoku:
+                    wRate = (wBackground / wSudoku) * (1 - (j * 0.01))
+                if hBackground <= hSudoku:
+                    hRate = (hBackground / hSudoku) * (1 - (j * 0.01))
 
-        print(wBackground, wSudoku)
-        if wBackground <= wSudoku:
-            wRate = (wBackground / wSudoku) * (numpy.random.randint(3, 10) * 0.1)
-        if hBackground <= hSudoku:
-            hRate = (hBackground / hSudoku) * (numpy.random.randint(3, 10) * 0.1)
+                whRate = wRate if wRate <= hRate else hRate
 
-        sudoku = cv2.resize(sudoku, dsize=None, fx=wRate, fy=hRate)
-        mask = cv2.resize(mask, dsize=None, fx=wRate, fy=hRate)
-        print(wRate, hRate)
-        wSudoku, hSudoku = sudoku.shape[:2] # type: int
-        if wBackground > wSudoku and hBackground > hSudoku:
-            
-            xOffset = np.random.randint(0, wBackground - wSudoku + 1) # type: int
-            yOffset = np.random.randint(0, hBackground - hSudoku + 1) # type: int
-                        
-            roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] # type: numpy.ndarray
-            result = np.where(mask==255, sudoku, roi) # type: numpy.ndarray
-            background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] = result
-            cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, background)
-        else:
-            print(sudoku.shape, "error")
+                tempSudoku = cv2.resize(tempSudoku, dsize=None, fx=whRate, fy=whRate)
+                tempMask = cv2.resize(tempMask, dsize=None, fx=whRate, fy=whRate)
+
+            wSudoku, hSudoku = tempSudoku.shape[:2] # type: int
+
+            if wBackground > wSudoku and hBackground > hSudoku:
+                sudoku = tempSudoku
+                mask = tempMask
+                xOffset = np.random.randint(0, wBackground - wSudoku + 1) # type: int
+                yOffset = np.random.randint(0, hBackground - hSudoku + 1) # type: int
+                            
+                roi = background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] # type: numpy.ndarray
+                result = np.where(mask==255, sudoku, roi) # type: numpy.ndarray
+                background[xOffset: xOffset + wSudoku, yOffset: yOffset + hSudoku] = result
+                cv2.imwrite('/Users/kitamurataku/Desktop/a/' + outputFileName, background)
+                break
+            else:
+                tempSudoku = sudoku.copy()
+                tempMask = mask.copy()
