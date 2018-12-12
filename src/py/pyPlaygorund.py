@@ -21,45 +21,54 @@ def opening(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
     kernel = np.ones(kernelShape,np.uint8)
     return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
-file_path = '2.jpg'
+file_path = '3.jpg'
 img_org = cv2.imread(file_path)
 
 img = cv2.imread(file_path, 0)
 
+gray_org_img = img
+
 height, width = img.shape[:2]
 
-img = dilate(img, (5,5))
+i = 10
 
-cv2.imwrite('b.png',img)
+while i > 0:
+    img = gray_org_img
+    img = dilate(img, (i, i))
 
-blur = cv2.GaussianBlur(img,(5,5),0)
+    cv2.imwrite('b.png',img)
 
-# ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-            cv2.THRESH_BINARY,11,2)
+    blur = cv2.GaussianBlur(img,(5,5),0)
 
-# ret3,th3 = cv2.threshold(th3,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    # ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
+                cv2.THRESH_BINARY,11,2)
 
-# th3 = opening(th3, (5, 5))
+    # ret3,th3 = cv2.threshold(th3,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+    # th3 = opening(th3, (5, 5))
 
 
 
-imgEdge,contours,hierarchy = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    imgEdge,contours,hierarchy = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
-contours.sort(key=cv2.contourArea, reverse=True)
+    contours.sort(key=cv2.contourArea, reverse=True)
 
-contours = contours[:5]
+    contours = contours[:5]
 
-maxArea = height * width
-
-for cnt in contours:
-    area = cv2.contourArea(cnt)
-    if area > maxArea * 0.5 and maxArea * 0.95 > area:
-        epsilon = 0.01 * cv2.arcLength(cnt,True)
-        approx = cv2.approxPolyDP(cnt,epsilon,True)
-        cv2.drawContours(img_org,[approx],-1,[0,255,0],2)
-        break
-    # print(cnt)
+    maxArea = height * width
+    
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        perimeter = cv2.arcLength(cnt,True)
+        print(area, perimeter)
+        if (area > maxArea * 0.3) and (maxArea * 0.85 > area):
+            epsilon = 0.01 * cv2.arcLength(cnt,True)
+            approx = cv2.approxPolyDP(cnt,epsilon,True)
+            cv2.drawContours(img_org,[approx],-1,[0,255,0],2)
+            i = 0
+            break
+    i -= 1
 
 cv2.imwrite('original.jpg',img_org)
 cv2.imwrite('o.jpg',th3)
