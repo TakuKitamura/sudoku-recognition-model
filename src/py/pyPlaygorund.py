@@ -17,77 +17,48 @@ def dilate(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
 def gaussianblur(img: np.ndarray, ksize: tuple) -> np.ndarray:
     return cv2.GaussianBlur(img, ksize, 0)
 
-file_path = 'a.jpg'
+def opening(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+
+file_path = '2.jpg'
 img_org = cv2.imread(file_path)
 
 img = cv2.imread(file_path, 0)
 
+height, width = img.shape[:2]
+
+img = dilate(img, (5,5))
+
+cv2.imwrite('b.png',img)
+
 blur = cv2.GaussianBlur(img,(5,5),0)
-ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
-#find the countours 
-# imgEdge, contours0,hierarchy = cv2.findContours(thresh,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
-# #size of the image (height, width)
-# h, w = img.shape[:2]
+# ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
+            cv2.THRESH_BINARY,11,2)
 
-# #copy the original image to show the posible candidate
-# image_sudoku_candidates = img.copy()
+# ret3,th3 = cv2.threshold(th3,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
-# size_rectangle_max = 0; 
-# for i in range(len(contours0)):
-#     #aproximate countours to polygons
-#     approximation = cv2.approxPolyDP(contours0[i], 4, True)
-        
-#     #has the polygon 4 sides?
-#     if(not (len (approximation)==4)):
-#         continue;
-#     #is the polygon convex ?
-#     if(not cv2.isContourConvex(approximation) ):
-#         continue; 
-#     #area of the polygon
-#     size_rectangle = cv2.contourArea(approximation)
-#     #store the biggest
-#     if size_rectangle> size_rectangle_max:
-#         size_rectangle_max = size_rectangle 
-#         big_rectangle = approximation
+# th3 = opening(th3, (5, 5))
 
-# approximation = big_rectangle
-# for i in range(len(approximation)):
-#     cv2.line(image_sudoku_candidates,
-#              (big_rectangle[(i%4)][0][0], big_rectangle[(i%4)][0][1]), 
-#              (big_rectangle[((i+1)%4)][0][0], big_rectangle[((i+1)%4)][0][1]),
-#              (255, 0, 0), 2)
-# img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-# img = erode(img, (100, 100))
-
-# edges = cv2.Canny(img,50,150,apertureSize = 3)
-
-# lines = cv2.HoughLines(edges,1,np.pi/180,200)
-# for rho,theta in lines[0]:
-#     a = np.cos(theta)
-#     b = np.sin(theta)
-#     x0 = a*rho
-#     y0 = b*rho
-#     x1 = int(x0 + 1000*(-b))
-#     y1 = int(y0 + 1000*(a))
-#     x2 = int(x0 - 1000*(-b))
-#     y2 = int(y0 - 1000*(a))
-
-# cv2.line(img_org,(x1,y1),(x2,y2),(0,0,255),2)
-
-# img = dilate(img, (100, 100))
-
-# ret, thresh = cv2.threshold(img, 250, 256, cv2.THRESH_TOZERO_INV) 
 
 imgEdge,contours,hierarchy = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
 contours.sort(key=cv2.contourArea, reverse=True)
 
+contours = contours[:5]
+
+maxArea = height * width
+
 for cnt in contours:
-    epsilon = 0.005 * cv2.arcLength(cnt,True)
-    approx = cv2.approxPolyDP(cnt,epsilon,True)
-    cv2.drawContours(img_org,[approx],-1,[0,255,0],2)    # 等高線の太さ
+    area = cv2.contourArea(cnt)
+    if area > maxArea * 0.5 and maxArea * 0.95 > area:
+        epsilon = 0.01 * cv2.arcLength(cnt,True)
+        approx = cv2.approxPolyDP(cnt,epsilon,True)
+        cv2.drawContours(img_org,[approx],-1,[0,255,0],2)
+        break
     # print(cnt)
 
 cv2.imwrite('original.jpg',img_org)
