@@ -114,8 +114,24 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-./composite
 
-./dataset
+# Env
 
 .vscode
+
+.DS_Store
+
+# DataSet
+
+composite
+
+dataset
+
+
+# Tensorflow
+tf/*
+
+!tf/models/model/frozenModel/*/frozen_inference_graph.pb
+
+
+!tf/models/model/ssd_mobilenet_v1_sudoku.config
