@@ -3,20 +3,45 @@ import cv2
 import numpy as np
 import math
 np.set_printoptions(threshold=np.inf)
+def erode(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.erode(img, kernel, iterations = 1)
+
 def dilate(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
     kernel = np.ones(kernelShape,np.uint8)
     return cv2.dilate(img, kernel, iterations = 1)
 
-def gaussianblur(img: np.ndarray, ksize: tuple) -> np.ndarray:
-    return cv2.GaussianBlur(img, ksize, 0)
+def opening(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
 def closing(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
     kernel = np.ones(kernelShape,np.uint8)
     return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
 
-def opening(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+def gradient(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
     kernel = np.ones(kernelShape,np.uint8)
-    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+    return cv2.morphologyEx(img, cv2.MORPH_GRADIENT, kernel)
+
+def tophat(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel)
+
+def blackhat(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, kernel)
+
+def gaussianblur(img: np.ndarray, ksize: tuple) -> np.ndarray:
+    return cv2.GaussianBlur(img, ksize, 0)
+
+def blur(img: np.ndarray, ksize: tuple) -> np.ndarray:
+    return cv2.blur(img, ksize)
+
+def medianBlur(img: np.ndarray, ksize: int) -> np.ndarray:
+    return cv2.medianBlur(img, ksize)
+
+def bilateralFilter(img: np.ndarray, d: int, sigmaColor: int, sigmaSpace: int) -> np.ndarray:
+    return cv2.bilateralFilter(img, d, sigmaColor, sigmaSpace)
 
 # Load the Tensorflow model into memory.
 detection_graph = tf.Graph()
@@ -45,7 +70,7 @@ detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
 # Number of objects detected
 num_detections = detection_graph.get_tensor_by_name('num_detections:0')
 
-sampleImg = cv2.imread("./c.jpg")
+sampleImg = cv2.imread("./d.jpg")
 
 originalImg = sampleImg.copy()
 
@@ -90,15 +115,18 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
         if height > 10000 or width > 10000:
             exit(1)
 
-        j = 50
+        j = 20
         m = 0
         while j > 0:
             print(j)
             img = gray_org_img
             green = img_org.copy()
-            img = opening(img, (j, j))
 
-            blur = gaussianblur(img,(3,3))
+            cross_kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (j, j))
+            img = cv2.dilate(img, cross_kernel, iterations = 1)
+
+            # blur = gaussianblur(img,cross_kernel)
+            blur = cv2.GaussianBlur(img, (7, 7), 0)
 
             th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,3,2)
 
@@ -158,7 +186,7 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
                 perimeter = cv2.arcLength(cnt,True)
                 k = cv2.isContourConvex(cnt)
 
-                epsilon = 0.00001 * perimeter
+                epsilon = 0.0000001 * perimeter
                 approx = cv2.approxPolyDP(cnt,epsilon,True)
                 cv2.drawContours(green,[approx],-1,[0,255,0],2)
                 cv2.imwrite('green_' + str(m) + '_' + str(j) + '.jpg', green)
