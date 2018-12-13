@@ -1,7 +1,22 @@
 import tensorflow as tf
 import cv2
 import numpy as np
+import math
+np.set_printoptions(threshold=np.inf)
+def dilate(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.dilate(img, kernel, iterations = 1)
 
+def gaussianblur(img: np.ndarray, ksize: tuple) -> np.ndarray:
+    return cv2.GaussianBlur(img, ksize, 0)
+
+def closing(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+
+def opening(img: np.ndarray, kernelShape: tuple) -> np.ndarray:
+    kernel = np.ones(kernelShape,np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
 # Load the Tensorflow model into memory.
 detection_graph = tf.Graph()
@@ -30,10 +45,12 @@ detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
 # Number of objects detected
 num_detections = detection_graph.get_tensor_by_name('num_detections:0')
 
-sampleImg = cv2.imread("./sample.jpg")
+sampleImg = cv2.imread("./c.jpg")
+
+originalImg = sampleImg.copy()
 
 height, width = sampleImg.shape[:2]
-print(height, width)
+# print(height, width)
 
 sampleImg= cv2.resize(sampleImg,dsize=(299,299), interpolation = cv2.INTER_CUBIC)
 
@@ -45,128 +62,148 @@ np_final = np.expand_dims(np_image_data, axis=0)
 
 boxes = np.squeeze(boxes)
 scores = np.squeeze(scores)
-print(scores)
+# print(scores)
 max_boxes_to_draw = boxes.shape[0]
 min_score_thresh = 0.01
 for i in range(min(max_boxes_to_draw, boxes.shape[0])):
     if scores is None or scores[i] > min_score_thresh:
         box = tuple(boxes[i].tolist())
         # print(box)
-        ymin = box[0]*height
-        xmin = box[1]*width
-        ymax = box[2]*height
-        xmax = box[3]*width
-        print(xmin ,xmax, ymin, ymax)
+        spaceRate = 0.05
+        ymin = (box[0]*height) - (height * spaceRate) if (box[0]*height) - (height * spaceRate) > 0 else (box[0]*height)
+        xmin = (box[1]*width) - (width * spaceRate) if (box[1]*width) - (width * spaceRate) > 0 else (box[1]*width)
+        ymax = (box[2]*height) + (height * spaceRate) if (box[2]*height) + (height * spaceRate) > 0 else (box[2]*height)
+        xmax = (box[3]*width) + (width * spaceRate) if (box[3]*width) + (width * spaceRate) > 0 else (box[3]*width)
+        print(ymin, xmin, ymax, xmax)
+        cropImg = originalImg[math.ceil(ymin):math.ceil(ymax), math.ceil(xmin):math.ceil(xmax)]
+        print(77)
+        cv2.imwrite('crop.jpg',cropImg)
 
-# saver = tf.train.Saver()
-# sess = tf.Session()
+        img_org = cropImg
 
-# saver = tf.train.import_meta_graph("model.ckpt-10277.meta")
-# saver.restore(sess, 'model.ckpt-10277')
+        img = cv2.cvtColor(cropImg, cv2.COLOR_BGR2GRAY)
 
-# estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config)
+        gray_org_img = img
 
-# preds = estimator.predict(input_fn=train_input_fn)
-#     for pred in preds:
-#     print(pred)
+        height, width = img.shape[:2]
 
-# def visualize_boxes_and_labels_on_image_array(
-#     image,
-#     boxes,
-#     classes,
-#     scores,
-#     category_index,
-#     instance_masks=None,
-#     instance_boundaries=None,
-#     keypoints=None,
-#     use_normalized_coordinates=False,
-#     max_boxes_to_draw=20,
-#     min_score_thresh=.5,
-#     agnostic_mode=False,
-#     line_thickness=4,
-#     groundtruth_box_visualization_color='black',
-#     skip_scores=False,
-#     skip_labels=False):
-#   """Overlay labeled boxes on an image with formatted scores and label names.
-#   This function groups boxes that correspond to the same location
-#   and creates a display string for each detection and overlays these
-#   on the image. Note that this function modifies the image in place, and returns
-#   that same image.
-#   Args:
-#     image: uint8 numpy array with shape (img_height, img_width, 3)
-#     boxes: a numpy array of shape [N, 4]
-#     classes: a numpy array of shape [N]. Note that class indices are 1-based,
-#       and match the keys in the label map.
-#     scores: a numpy array of shape [N] or None.  If scores=None, then
-#       this function assumes that the boxes to be plotted are groundtruth
-#       boxes and plot all boxes as black with no classes or scores.
-#     category_index: a dict containing category dictionaries (each holding
-#       category index `id` and category name `name`) keyed by category indices.
-#     instance_masks: a numpy array of shape [N, image_height, image_width] with
-#       values ranging between 0 and 1, can be None.
-#     instance_boundaries: a numpy array of shape [N, image_height, image_width]
-#       with values ranging between 0 and 1, can be None.
-#     keypoints: a numpy array of shape [N, num_keypoints, 2], can
-#       be None
-#     use_normalized_coordinates: whether boxes is to be interpreted as
-#       normalized coordinates or not.
-#     max_boxes_to_draw: maximum number of boxes to visualize.  If None, draw
-#       all boxes.
-#     min_score_thresh: minimum score threshold for a box to be visualized
-#     agnostic_mode: boolean (default: False) controlling whether to evaluate in
-#       class-agnostic mode or not.  This mode will display scores but ignore
-#       classes.
-#     line_thickness: integer (default: 4) controlling line width of the boxes.
-#     groundtruth_box_visualization_color: box color for visualizing groundtruth
-#       boxes
-#     skip_scores: whether to skip score when drawing a single detection
-#     skip_labels: whether to skip label when drawing a single detection
-#   Returns:
-#     uint8 numpy array with shape (img_height, img_width, 3) with overlaid boxes.
-#   """
-#   # Create a display string (and color) for every box location, group any boxes
-#   # that correspond to the same location.
-#   box_to_display_str_map = collections.defaultdict(list)
-#   box_to_color_map = collections.defaultdict(str)
-#   box_to_instance_masks_map = {}
-#   box_to_instance_boundaries_map = {}
-#   box_to_keypoints_map = collections.defaultdict(list)
-#   if not max_boxes_to_draw:
-#     max_boxes_to_draw = boxes.shape[0]
-#   for i in range(min(max_boxes_to_draw, boxes.shape[0])):
-#     if scores is None or scores[i] > min_score_thresh:
-#       box = tuple(boxes[i].tolist())
-#       if instance_masks is not None:
-#         box_to_instance_masks_map[box] = instance_masks[i]
-#       if instance_boundaries is not None:
-#         box_to_instance_boundaries_map[box] = instance_boundaries[i]
-#       if keypoints is not None:
-#         box_to_keypoints_map[box].extend(keypoints[i])
-#       if scores is None:
-#         box_to_color_map[box] = groundtruth_box_visualization_color
-#       else:
-#         display_str = ''
-#         if not skip_labels:
-#           if not agnostic_mode:
-#             if classes[i] in category_index.keys():
-#               class_name = category_index[classes[i]]['name']
-#             else:
-#               class_name = 'N/A'
-#             display_str = str(class_name)
-#         if not skip_scores:
-#           if not display_str:
-#             display_str = '{}%'.format(int(100*scores[i]))
-#           else:
-#             display_str = '{}: {}%'.format(display_str, int(100*scores[i]))
-#         box_to_display_str_map[box].append(display_str)
-#         if agnostic_mode:
-#           box_to_color_map[box] = 'DarkOrange'
-#         else:
-#           box_to_color_map[box] = STANDARD_COLORS[
-#               classes[i] % len(STANDARD_COLORS)]
+        if height > 10000 or width > 10000:
+            exit(1)
 
-#   # Draw all boxes onto image.
-#   for box, _ in box_to_color_map.items():
-#     ymin, xmin, ymax, xmax = box
+        j = 50
+        m = 0
+        while j > 0:
+            print(j)
+            img = gray_org_img
+            green = img_org.copy()
+            img = opening(img, (j, j))
 
-#   return image
+            blur = gaussianblur(img,(3,3))
+
+            th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,3,2)
+
+            imgEdge,contours,hierarchy = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+            # lsd = cv2.createLineSegmentDetector(0)
+
+            # lines, _ = lsd.detect(th3)[:2]
+
+            # # print(w)
+
+            # # th3 = lsd.drawSegments(th3,lines)
+
+            # for i in range(len(lines)):
+            #     for x1,y1,x2,y2 in lines[i] :
+            #         cv2.line(th3,(x1,y1),(x2,y2),(0,0,0),10)
+
+            cv2.imwrite('mono_' + str(j) + '.jpg',th3)
+
+            contours.sort(key=cv2.contourArea, reverse=True)
+
+            contours = contours[:5]
+
+            maxArea = height * width
+            for cnt in contours:
+                m+=1
+                sqeeze = np.squeeze(cnt)
+
+                # xMin = min(sqeeze[:, 0])
+                # xMax = max(sqeeze[:, 0])
+                # yMin = min(sqeeze[:, 1])
+                # yMax = max(sqeeze[:, 1])
+                # [[229 182]
+                # [230 181]
+                # [939 181]
+                # [940 182]
+                # [940 891]
+                # [939 892]
+                # [230 892]
+                # [229 891]]
+                xMinIndex = np.argmin(sqeeze[:, 0])
+                p1 = [sqeeze[:, 0][xMinIndex], sqeeze[:, 1][xMinIndex]]
+
+                xMaxIndex = np.argmax(sqeeze[:, 0])
+                p2 = [sqeeze[:, 0][xMaxIndex], sqeeze[:, 1][xMaxIndex]]
+
+                yMinIndex = np.argmin(sqeeze[:, 1])
+                p3 = [sqeeze[:, 0][yMinIndex], sqeeze[:, 1][yMinIndex]]
+
+                yMaxIndex = np.argmax(sqeeze[:, 1])
+                p4 = [sqeeze[:, 0][yMaxIndex], sqeeze[:, 1][yMaxIndex]]
+
+                if p1[0] == 0 or p2[0] == width - 1 or p3[1] == 0 or p4[1] == height -1:
+                    continue
+
+                area = cv2.contourArea(cnt)
+                perimeter = cv2.arcLength(cnt,True)
+                k = cv2.isContourConvex(cnt)
+
+                epsilon = 0.00001 * perimeter
+                approx = cv2.approxPolyDP(cnt,epsilon,True)
+                cv2.drawContours(green,[approx],-1,[0,255,0],2)
+                cv2.imwrite('green_' + str(m) + '_' + str(j) + '.jpg', green)
+                if area >= maxArea/3 and area <= maxArea:
+
+                    print(sqeeze)
+                    # epsilon = 0.01 * perimeter
+                    # approx = cv2.approxPolyDP(cnt,epsilon,True)
+                    # cv2.drawContours(img_org,[approx],-1,[0,255,0],2)
+                    # j = 0
+                    # p1=[-1, -1]
+                    # p2=[-1, -1]
+                    # p3=[-1, -1]
+                    # p4=[-1, -1]
+                    # firstIn = -1
+                    # for v in np.squeeze(cnt):
+                    #     # print(v)
+                    #     if v[0] == xMin:
+                    #         p1[0], p1[1] = v
+                    #         firstIn = 1
+                    #         print(1)
+                    #     elif v[1] == yMin:
+                    #         p2[0], p2[1] = v
+                    #         print(2)
+                    #     elif v[1] == yMax:
+                    #         p3[0], p3[1] = v
+                    #         print(3)
+                    #     elif v[0] == xMax:
+                    #         p4[0], p4[1] = v
+                    #         firstIn = 4
+                    #         print(4)
+                    print(p1, p2, p3, p4)
+                    pts2 = np.float32([[0,0],[height,0],[0,width],[height,width]])
+                    if p1[1] < p4[1]:
+                        pts1 = np.float32([p1,p2,p3,p4])
+                    else:
+                        pts1 = np.float32([p2,p4,p1,p3])
+                    M = cv2.getPerspectiveTransform(pts1,pts2)
+
+                    rst = cv2.warpPerspective(img_org,M,(height,width))
+                    minLength = height if height > width else width
+                    rst = cv2.resize(rst,(minLength,minLength))
+                    # cv2.imwrite('original.jpg',img_org)
+                    cv2.imwrite('result.jpg',rst)
+                    exit(0)
+                    break
+            j -= 1
+    exit(0)
