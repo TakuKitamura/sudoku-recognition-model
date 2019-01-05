@@ -70,7 +70,7 @@ detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
 # Number of objects detected
 num_detections = detection_graph.get_tensor_by_name('num_detections:0')
 
-sampleImg = cv2.imread("./d.jpg")
+sampleImg = cv2.imread("./sample5.jpg")
 
 originalImg = sampleImg.copy()
 
@@ -89,19 +89,20 @@ boxes = np.squeeze(boxes)
 scores = np.squeeze(scores)
 # print(scores)
 max_boxes_to_draw = boxes.shape[0]
-min_score_thresh = 0.01
+min_score_thresh = 0.03
 for i in range(min(max_boxes_to_draw, boxes.shape[0])):
+    print(scores)
     if scores is None or scores[i] > min_score_thresh:
         box = tuple(boxes[i].tolist())
         # print(box)
-        spaceRate = 0.05
+        spaceRate = 0.2
         ymin = (box[0]*height) - (height * spaceRate) if (box[0]*height) - (height * spaceRate) > 0 else (box[0]*height)
         xmin = (box[1]*width) - (width * spaceRate) if (box[1]*width) - (width * spaceRate) > 0 else (box[1]*width)
         ymax = (box[2]*height) + (height * spaceRate) if (box[2]*height) + (height * spaceRate) > 0 else (box[2]*height)
         xmax = (box[3]*width) + (width * spaceRate) if (box[3]*width) + (width * spaceRate) > 0 else (box[3]*width)
-        print(ymin, xmin, ymax, xmax)
+        # print(ymin, xmin, ymax, xmax)
         cropImg = originalImg[math.ceil(ymin):math.ceil(ymax), math.ceil(xmin):math.ceil(xmax)]
-        print(77)
+        # print(77)
         cv2.imwrite('crop.jpg',cropImg)
 
         img_org = cropImg
@@ -115,10 +116,10 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
         if height > 10000 or width > 10000:
             exit(1)
 
-        j = 20
+        j = 12
         m = 0
         while j > 0:
-            print(j)
+            # print(j)
             img = gray_org_img
             green = img_org.copy()
 
@@ -126,9 +127,9 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
             img = cv2.dilate(img, cross_kernel, iterations = 1)
 
             # blur = gaussianblur(img,cross_kernel)
-            blur = cv2.GaussianBlur(img, (7, 7), 0)
+            blur = cv2.GaussianBlur(img, (9, 9), 0)
 
-            th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,3,2)
+            th3 = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,9,2)
 
             imgEdge,contours,hierarchy = cv2.findContours(th3, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -184,15 +185,17 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
 
                 area = cv2.contourArea(cnt)
                 perimeter = cv2.arcLength(cnt,True)
-                k = cv2.isContourConvex(cnt)
-
-                epsilon = 0.0000001 * perimeter
+                # k = cv2.isContourConvex(cnt)
+                epsilon = perimeter * 0.1
                 approx = cv2.approxPolyDP(cnt,epsilon,True)
+                if len(approx) != 4:
+                    continue
+                # print("approx ,", approx)
                 cv2.drawContours(green,[approx],-1,[0,255,0],2)
                 cv2.imwrite('green_' + str(m) + '_' + str(j) + '.jpg', green)
-                if area >= maxArea/3 and area <= maxArea:
+                if area >= maxArea/4 and area <= maxArea or True:
 
-                    print(sqeeze)
+                    # print(sqeeze)
                     # epsilon = 0.01 * perimeter
                     # approx = cv2.approxPolyDP(cnt,epsilon,True)
                     # cv2.drawContours(img_org,[approx],-1,[0,255,0],2)
@@ -218,12 +221,13 @@ for i in range(min(max_boxes_to_draw, boxes.shape[0])):
                     #         p4[0], p4[1] = v
                     #         firstIn = 4
                     #         print(4)
-                    print(p1, p2, p3, p4)
+                    print(p1, p2, p1, p4)
                     pts2 = np.float32([[0,0],[height,0],[0,width],[height,width]])
-                    if p1[1] < p4[1]:
-                        pts1 = np.float32([p1,p2,p3,p4])
-                    else:
-                        pts1 = np.float32([p2,p4,p1,p3])
+                    # if p1[1] < p4[1]:
+                    #     pts1 = np.float32([p1,p2,p3,p4])
+                    #     pts1 = np.float32([p2,p4,p1,p3])
+                    # else:
+                    pts1 = np.float32([p3,p2,p1,p4])
                     M = cv2.getPerspectiveTransform(pts1,pts2)
 
                     rst = cv2.warpPerspective(img_org,M,(height,width))
